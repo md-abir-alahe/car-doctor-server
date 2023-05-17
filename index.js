@@ -10,6 +10,23 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+
+const verifyJWT = (req, res ,next) => {
+    const authorization = req.headers.authorization;
+    if(!authorization){
+        return res.status(401).send({error: true, message: 'unauthorized access'})
+    }
+    const token = authorization.split(' ')[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, decoded)=>{
+        if(error){
+            return res.status(401).send({error: true, message: 'unauthorized access'})
+        }
+        req.decoded = decoded;
+        next();
+    })
+}
+
+
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.lxz9tc9.mongodb.net/?retryWrites=true&w=majority`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -64,8 +81,16 @@ async function run() {
 
 
         // Bookings routes
-        app.get('/bookings', async (req, res) => {
-            // console.log(req.query.email);
+        app.get('/bookings', verifyJWT, async (req, res) => {
+            // console.log(req.headers.authorization);
+            const decoded = req.decoded;
+            console.log('came back from jwt verification', decoded);
+
+            if(decoded.email !== req.query.email){
+                return res.status(403).send({error: 1, message: 'forbidden access'})
+            }
+
+
             let query = {};
             if (req.query?.email) {
                 query = { email: req.query.email }
